@@ -1,0 +1,6 @@
+tkinter
+sqlite3
+requests
+matplotlib
+folium
+geopy
