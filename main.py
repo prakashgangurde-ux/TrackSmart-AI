@@ -1,5 +1,4 @@
-# TrackSmart AI – Tkinter Desktop Version
-# Author: You + ChatGPT
+# TrackSmart AI – Tkinter Desktop App
 # Features: User Login, Location Reminder, AI Suggestions, SQLite Storage, Auto Location via IP, Stats & Graphs, Smart AI UI
 
 import tkinter as tk
@@ -20,6 +19,8 @@ import webbrowser
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
 import time
+from tkcalendar import DateEntry
+import os
 
 # Add OpenWeatherMap API key
 WEATHER_API_KEY = "https://api.openweathermap.org/data/3.0/onecall?lat={lat}&lon={lon}&exclude={part}&appid={API key}"  # Get from openweathermap.org
@@ -107,6 +108,188 @@ DARK_MODE = False
 current_theme = "light"
 SESSION_TIMEOUT = 30  # minutes
 
+# Add custom styles and constants
+PADDING = 10
+BUTTON_WIDTH = 35
+BUTTON_HEIGHT = 2
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 800
+
+# Updated style constants
+STYLES = {
+    'PRIMARY_COLOR': '#2962ff',
+    'SECONDARY_COLOR': '#455a64',
+    'BG_COLOR': '#f5f5f5',
+    'ACCENT_COLOR': '#00c853',
+    'FONT_FAMILY': 'Segoe UI',  # Changed from Helvetica
+    'HEADING_SIZE': 14,
+    'BUTTON_SIZE': 10,
+    'LABEL_SIZE': 10,
+    'DARK_BG': '#2b2b2b',
+    'DARK_FG': '#ffffff',
+    'DARK_ACCENT': '#404040'
+}
+
+# Add window size constants
+WINDOW_SIZES = {
+    'main': "1024x768",
+    'login': "400x500",
+    'register': "400x550",
+    'dashboard': "800x600",
+    'settings': "400x500",
+    'weather': "400x300",
+    'reminders': "600x400",
+    'search': "800x600",
+    'notes': "500x600",
+    'timeline': "800x600"
+}
+
+def center_window(window, width, height):
+    """Center any window on screen"""
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+    x = (screen_width - width) // 2
+    y = (screen_height - height) // 2
+    window.geometry(f"{width}x{height}+{x}+{y}")
+
+def setup_styles():
+    style = ttk.Style()
+    style.theme_use('clam')  # Use modern clam theme
+    
+    # Configure base styles for light/dark modes
+    def configure_theme(is_dark=False):
+        try:
+            bg = STYLES['DARK_BG'] if is_dark else STYLES['BG_COLOR']
+            fg = STYLES['DARK_FG'] if is_dark else 'black'
+            accent = STYLES['DARK_ACCENT'] if is_dark else STYLES['SECONDARY_COLOR']
+            
+            # Base styles must be configured first
+            style.configure('TFrame', background=bg)
+            style.configure('TLabel', background=bg, foreground=fg)
+            style.configure('TLabelframe', background=bg, foreground=fg)
+            style.configure('TLabelframe.Label', background=bg, foreground=fg)
+            
+            # Button styles
+            style.configure('TButton', 
+                background=accent,
+                foreground=fg,
+                padding=6,
+                font=(STYLES['FONT_FAMILY'], STYLES['BUTTON_SIZE']))
+                
+            # Custom button styles
+            style.configure('Primary.TButton',
+                padding=(20, 10),
+                font=(STYLES['FONT_FAMILY'], STYLES['BUTTON_SIZE']),
+                background=STYLES['PRIMARY_COLOR'],
+                foreground='white')
+                
+            style.configure('Secondary.TButton',
+                padding=(15, 8),
+                font=(STYLES['FONT_FAMILY'], STYLES['BUTTON_SIZE']))
+                
+            style.configure('MenuButton.TButton',
+                font=(STYLES['FONT_FAMILY'], 10),
+                padding=8)
+                
+            # Section styles
+            style.configure('Section.TLabelframe',
+                background=bg,
+                foreground=fg,
+                padding=10,
+                font=(STYLES['FONT_FAMILY'], STYLES['LABEL_SIZE']))
+                
+            style.configure('Section.TLabelframe.Label',
+                font=(STYLES['FONT_FAMILY'], STYLES['HEADING_SIZE'], 'bold'),
+                foreground=STYLES['SECONDARY_COLOR'],
+                background=bg)
+                
+            # Other widget styles
+            style.configure('TEntry', fieldbackground=bg, foreground=fg)
+            style.configure('TNotebook', background=bg)
+            style.configure('TNotebook.Tab', background=accent, foreground=fg)
+            style.configure('TScrollbar',
+                background=accent,
+                troughcolor=bg,
+                width=10,
+                arrowsize=13)
+                
+            # Heading styles
+            style.configure('Header.TLabel',
+                font=(STYLES['FONT_FAMILY'], 24, 'bold'),
+                foreground=STYLES['PRIMARY_COLOR'],
+                background=bg,
+                padding=15)
+                
+            style.configure('Heading.TLabel',
+                font=(STYLES['FONT_FAMILY'], 16, 'bold'),
+                foreground=STYLES['PRIMARY_COLOR'],
+                background=bg,
+                padding=(0, 20))
+                
+            style.configure('Regular.TLabel',
+                font=(STYLES['FONT_FAMILY'], STYLES['LABEL_SIZE']),
+                background=bg,
+                padding=5)
+                
+            # Button hover effects
+            style.map('MenuButton.TButton',
+                background=[('active', STYLES['PRIMARY_COLOR'])],
+                foreground=[('active', 'white')])
+                
+        except tk.TclError as e:
+            print(f"Style error: {e}")
+            # Fallback to basic styles if custom ones fail
+            style.configure('TFrame', background='white')
+            style.configure('TLabel', background='white')
+            style.configure('TButton', padding=5)
+
+    # Initial light mode setup
+    configure_theme(False)
+    root.configure_theme = configure_theme
+
+def apply_theme(theme_name):
+    global current_theme
+    current_theme = theme_name
+    root.configure_theme(theme_name == "dark")
+    
+    # Update window background
+    bg_color = STYLES['DARK_BG'] if theme_name == "dark" else STYLES['BG_COLOR']
+    root.configure(bg=bg_color)
+    
+    # Force refresh all widgets
+    for widget in root.winfo_children():
+        widget.update()
+
+def create_scrollable_frame(parent):
+    container = ttk.Frame(parent)
+    canvas = tk.Canvas(container, highlightthickness=0)  # Remove border
+    scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+    
+    # Configure scrollbar style
+    scrollbar.config(style='TScrollbar')
+    
+    # Enhanced mouse wheel scrolling
+    def _on_mousewheel(event):
+        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+    
+    canvas.bind_all("<MouseWheel>", _on_mousewheel)
+    
+    scrollable_frame = ttk.Frame(canvas)
+
+    scrollable_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    container.pack(fill="both", expand=True, padx=PADDING, pady=PADDING)
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+    return scrollable_frame
+
 # --- AI Assistant Logic ---
 def ai_suggestion():
     now = datetime.now()
@@ -117,6 +300,17 @@ def ai_suggestion():
         return "Good afternoon! Have you completed your goals for today?"
     else:
         return "Good evening! Time to relax or plan for tomorrow."
+
+def smart_note_suggestions(note_text):
+    """
+    Placeholder: Use GPT or spaCy to analyze and tag notes.
+    For now, returns a dummy tag.
+    """
+    if "exam" in note_text.lower():
+        return "exam"
+    elif "shop" in note_text.lower():
+        return "shopping"
+    return "general"
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -142,35 +336,125 @@ def check_session():
         return False
     return True
 
-def apply_theme(theme_name):
-    global current_theme
-    current_theme = theme_name
-    style = ttk.Style()
-    if theme_name == "dark":
-        root.configure(bg='#2b2b2b')
-        style.configure("TLabel", background='#2b2b2b', foreground='white')
-        style.configure("TButton", background='#404040', foreground='white')
-    else:
-        root.configure(bg='#f0f0f0')
-        style.configure("TLabel", background='#f0f0f0', foreground='black')
-        style.configure("TButton", background='#e0e0e0', foreground='black')
+def create_login_window():
+    """Create styled login window"""
+    login_win = tk.Toplevel(root)
+    login_win.title("Login - TrackSmart AI")
+    
+    # Ensure window is created with correct size and position
+    width, height = map(int, WINDOW_SIZES['login'].split('x'))
+    center_window(login_win, width, height)
+    login_win.grab_set()
+    
+    # Create main container with style
+    frame = ttk.Frame(login_win, style='TFrame')
+    frame.pack(fill='both', expand=True, padx=20, pady=20)
+    
+    # Header
+    ttk.Label(frame, text="Welcome Back", 
+             style='Header.TLabel').pack(pady=(0,20))
+             
+    # Username
+    ttk.Label(frame, text="Username:", 
+             style='Regular.TLabel').pack(anchor='w', pady=(10,0))
+    user_entry = ttk.Entry(frame, width=40)
+    user_entry.pack(fill='x', pady=(5,10))
+    
+    # Password
+    ttk.Label(frame, text="Password:", 
+             style='Regular.TLabel').pack(anchor='w', pady=(10,0))
+    pass_entry = ttk.Entry(frame, show="*", width=40)
+    pass_entry.pack(fill='x', pady=(5,20))
+    
+    return login_win, user_entry, pass_entry
 
-# --- Authentication ---
-def register():
-    global current_user_id
+def create_register_window():
+    """Create styled registration window"""
     reg_win = tk.Toplevel(root)
-    reg_win.title("Register")
-    reg_win.geometry("300x200")
+    reg_win.title("Register - TrackSmart AI")
+    width, height = map(int, WINDOW_SIZES['register'].split('x'))
+    center_window(reg_win, width, height)
+    reg_win.grab_set()  # Make window modal
+    
+    # Create main frame with padding
+    frame = ttk.Frame(reg_win, padding="20")
+    frame.pack(fill='both', expand=True)
+    
+    # Header
+    ttk.Label(frame, text="Create Account", 
+             style='Header.TLabel').pack(pady=(0,20))
+             
+    # Username
+    ttk.Label(frame, text="Username:", 
+             style='Regular.TLabel').pack(anchor='w', pady=(10,0))
+    user_entry = ttk.Entry(frame, width=40)
+    user_entry.pack(fill='x', pady=(5,10))
+    
+    # Password
+    ttk.Label(frame, text="Password:", 
+             style='Regular.TLabel').pack(anchor='w', pady=(10,0))
+    pass_entry = ttk.Entry(frame, show="*", width=40)
+    pass_entry.pack(fill='x', pady=(5,10))
+    
+    # Email
+    ttk.Label(frame, text="Email:", 
+             style='Regular.TLabel').pack(anchor='w', pady=(10,0))
+    email_entry = ttk.Entry(frame, width=40)
+    email_entry.pack(fill='x', pady=(5,20))
+    
+    return reg_win, user_entry, pass_entry, email_entry
 
+def validate_password_strength(password):
+    """Check if password meets minimum security requirements"""
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    if not any(c.isupper() for c in password):
+        return False, "Password must contain at least one uppercase letter"
+    if not any(c.islower() for c in password):
+        return False, "Password must contain at least one lowercase letter"
+    if not any(c.isdigit() for c in password):
+        return False, "Password must contain at least one number"
+    return True, "Password is strong"
+
+def sanitize_input(text):
+    """Remove potentially dangerous characters"""
+    return re.sub(r'[;<>&$]', '', text.strip())
+
+def check_username_exists(username):
+    """Check if username is already taken"""
+    cursor.execute("SELECT COUNT(*) FROM users WHERE username = ?", (username,))
+    return cursor.fetchone()[0] > 0
+
+def register():
+    reg_win, user_entry, pass_entry, email_entry = create_register_window()
+    
     def do_register():
-        username = user_entry.get()
-        password = pass_entry.get()
-        email = email_entry.get()
+        username = sanitize_input(user_entry.get())
+        password = sanitize_input(pass_entry.get())
+        email = sanitize_input(email_entry.get())
         
-        if len(username) < 3 or len(password) < 6:
-            messagebox.showerror("Error", "Username must be at least 3 characters and password at least 6 characters")
+        # Validate all fields are filled
+        if not all([username, password, email]):
+            messagebox.showerror("Error", "All fields are required")
             return
             
+        # Check username length and characters
+        if not re.match(r'^[a-zA-Z0-9_]{3,20}$', username):
+            messagebox.showerror("Error", "Username must be 3-20 characters long and contain only letters, numbers, and underscores")
+            return
+            
+        # Check if username exists
+        if check_username_exists(username):
+            messagebox.showerror("Error", "Username already exists")
+            return
+            
+        # Validate password strength
+        is_valid, msg = validate_password_strength(password)
+        if not is_valid:
+            messagebox.showerror("Error", msg)
+            return
+            
+        # Validate email
         if not validate_email(email):
             messagebox.showerror("Error", "Invalid email format")
             return
@@ -179,74 +463,91 @@ def register():
             hashed_pwd = hash_password(password)
             cursor.execute("INSERT INTO users (username, password, email) VALUES (?, ?, ?)", 
                          (username, hashed_pwd, email))
-            cursor.execute("INSERT INTO user_settings (user_id) VALUES (?)", 
-                         (cursor.lastrowid,))
+            user_id = cursor.lastrowid
+            
+            # Initialize user settings
+            cursor.execute("INSERT INTO user_settings (user_id, theme) VALUES (?, ?)", (user_id, 'light'))
+            cursor.execute("INSERT INTO settings (user_id, last_login) VALUES (?, ?)", (user_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            
             conn.commit()
-            messagebox.showinfo("Success", "Registration complete")
+            messagebox.showinfo("Success", "Registration complete! You can now login.")
             reg_win.destroy()
+            
         except sqlite3.IntegrityError:
-            messagebox.showerror("Error", "Username already exists")
+            messagebox.showerror("Error", "An error occurred during registration")
+        except Exception as e:
+            messagebox.showerror("Error", f"Registration failed: {str(e)}")
 
-    tk.Label(reg_win, text="Username:").pack()
-    user_entry = tk.Entry(reg_win)
-    user_entry.pack()
+    ttk.Button(reg_win, text="Register", 
+              style='Primary.TButton',
+              command=do_register).pack(pady=20)
+    
+    # Add password requirements label
+    ttk.Label(reg_win, text="Password must contain:\n" +
+             "- At least 8 characters\n" +
+             "- One uppercase letter\n" +
+             "- One lowercase letter\n" +
+             "- One number",
+             style='Regular.TLabel').pack(pady=10)
+    
     user_entry.focus()
 
-    tk.Label(reg_win, text="Password:").pack()
-    pass_entry = tk.Entry(reg_win, show="*")
-    pass_entry.pack()
-
-    tk.Label(reg_win, text="Email:").pack()
-    email_entry = tk.Entry(reg_win)
-    email_entry.pack()
-
-    tk.Button(reg_win, text="Register", command=do_register).pack(pady=10)
-
 def login():
-    global current_user_id
-    login_win = tk.Toplevel(root)
-    login_win.title("Login")
-    login_win.geometry("300x200")
-
+    login_win, user_entry, pass_entry = create_login_window()
+    
     def do_login():
         global current_user_id, session_start
-        username = user_entry.get()
-        password = pass_entry.get()
-        hashed_pwd = hash_password(password)
+        username = sanitize_input(user_entry.get())
+        password = sanitize_input(pass_entry.get())
         
+        if not username or not password:
+            messagebox.showerror("Error", "Please fill in all fields")
+            return
+            
         try:
-            cursor.execute("""
-                SELECT users.id, user_settings.theme 
-                FROM users 
-                LEFT JOIN user_settings ON users.id = user_settings.user_id 
-                WHERE username = ? AND password = ?
-            """, (username, hashed_pwd))
+            cursor.execute("SELECT id, password FROM users WHERE username = ?", (username,))
             result = cursor.fetchone()
             
-            if result:
+            if result and hash_password(password) == result[1]:
                 current_user_id = result[0]
                 session_start = datetime.now()
+                
+                # Update last login
                 cursor.execute("UPDATE settings SET last_login = ? WHERE user_id = ?", 
                              (session_start.strftime("%Y-%m-%d %H:%M:%S"), current_user_id))
+                
+                # Get theme preference
+                cursor.execute("SELECT theme FROM user_settings WHERE user_id = ?", (current_user_id,))
+                theme_result = cursor.fetchone()
+                
                 conn.commit()
-                apply_theme(result[1] if result[1] else 'light')
+                apply_theme(theme_result[0] if theme_result and theme_result[0] else 'light')
+                
+                # Show success message
+                messagebox.showinfo("Welcome", f"Welcome back, {username}!")
+                
                 show_main_menu()
                 login_win.destroy()
             else:
-                messagebox.showerror("Error", "Invalid credentials")
+                messagebox.showerror("Error", "Invalid username or password")
+                pass_entry.delete(0, tk.END)
+                
         except Exception as e:
             messagebox.showerror("Error", f"Login failed: {str(e)}")
-
-    tk.Label(login_win, text="Username:").pack()
-    user_entry = tk.Entry(login_win)
-    user_entry.pack()
+            
+        # Add attempt tracking here if needed
+        
+    ttk.Button(login_win, text="Login", 
+              style='Primary.TButton',
+              command=do_login).pack(pady=20)
+    
+    # Add forgot password option (placeholder)
+    ttk.Button(login_win, text="Forgot Password?",
+              style='Secondary.TButton',
+              command=lambda: messagebox.showinfo("Info", "Please contact admin to reset password")
+              ).pack(pady=5)
+    
     user_entry.focus()
-
-    tk.Label(login_win, text="Password:").pack()
-    pass_entry = tk.Entry(login_win, show="*")
-    pass_entry.pack()
-
-    tk.Button(login_win, text="Login", command=do_login).pack(pady=10)
 
 def logout():
     global current_user_id, session_start
@@ -504,20 +805,59 @@ def export_logs_to_csv():
         messagebox.showerror("Error", "Please login first!")
         return
 
-    cursor.execute("SELECT location, timestamp FROM locations WHERE user_id = ?", (current_user_id,))
-    rows = cursor.fetchall()
+    # Create date picker window
+    date_win = tk.Toplevel(root)
+    date_win.title("Select Date Range")
+    date_win.geometry("300x200")
 
-    if not rows:
-        messagebox.showinfo("Export", "No location data to export.")
-        return
+    ttk.Label(date_win, text="Start Date:").pack(pady=5)
+    start_date = DateEntry(date_win, width=30, background='darkblue', foreground='white')
+    start_date.pack(pady=5)
 
-    with open("tracksmart_logs.csv", mode="w", newline="", encoding="utf-8") as file:
-        writer = csv.writer(file)
-        writer.writerow(["Location", "Timestamp"])
-        for loc, ts in rows:
-            writer.writerow([loc, ts])
+    ttk.Label(date_win, text="End Date:").pack(pady=5)
+    end_date = DateEntry(date_win, width=30, background='darkblue', foreground='white')
+    end_date.pack(pady=5)
 
-    messagebox.showinfo("Export Complete", "Location logs exported to 'tracksmart_logs.csv'.")
+    def export_range():
+        start = start_date.get_date()
+        end = end_date.get_date()
+        
+        if start > end:
+            messagebox.showerror("Error", "Start date must be before end date")
+            return
+
+        # Format dates for SQL query
+        start_str = start.strftime("%Y-%m-%d 00:00:00")
+        end_str = end.strftime("%Y-%m-%d 23:59:59")
+
+        cursor.execute("""
+            SELECT location, timestamp 
+            FROM locations 
+            WHERE user_id = ? 
+            AND timestamp BETWEEN ? AND ?
+            ORDER BY timestamp
+        """, (current_user_id, start_str, end_str))
+        
+        rows = cursor.fetchall()
+
+        if not rows:
+            messagebox.showinfo("Export", "No data found in selected date range")
+            return
+
+        try:
+            filename = f"tracksmart_logs_{start.strftime('%Y%m%d')}-{end.strftime('%Y%m%d')}.csv"
+            with open(filename, mode="w", newline="", encoding="utf-8") as file:
+                writer = csv.writer(file)
+                writer.writerow(["Location", "Timestamp"])
+                for loc, ts in rows:
+                    writer.writerow([loc, ts])
+            
+            messagebox.showinfo("Export Complete", f"Data exported to '{filename}'")
+            date_win.destroy()
+        except Exception as e:
+            messagebox.showerror("Error", f"Export failed: {str(e)}")
+
+    ttk.Button(date_win, text="Export", command=export_range).pack(pady=20)
 
 def open_ai_assistant():
     ai_win = tk.Toplevel(root)
@@ -662,21 +1002,21 @@ def manage_location_notes(location):
     notes_win.title(f"Notes for {location}")
     notes_win.geometry("400x500")
 
-    # Fetch existing notes
-    cursor.execute("""
-        SELECT id, note, timestamp 
-        FROM location_notes 
-        WHERE user_id = ? AND location = ?
-        ORDER BY timestamp DESC
-    """, (current_user_id, location))
-    
     notes_frame = ttk.Frame(notes_win)
     notes_frame.pack(fill='both', expand=True, padx=10, pady=5)
 
-    # Add note section
+    # Add note section with tag display
     ttk.Label(notes_frame, text="Add New Note:").pack(pady=5)
     note_entry = ttk.Entry(notes_frame, width=40)
     note_entry.pack(pady=5)
+    tag_label = ttk.Label(notes_frame, text="Tag: general", style='Regular.TLabel')
+    tag_label.pack(pady=2)
+
+    def update_tag(*args):
+        tag = smart_note_suggestions(note_entry.get())
+        tag_label.config(text=f"Tag: {tag}")
+
+    note_entry.bind('<KeyRelease>', update_tag)
 
     def add_note():
         note = note_entry.get().strip()
@@ -823,63 +1163,169 @@ def show_main_menu():
     for widget in root.winfo_children():
         widget.destroy()
 
-    # Increase window size
-    root.geometry("600x700")  
+    # Main container with explicit style
+    main = ttk.Frame(root, style='TFrame')
+    main.pack(fill='both', expand=True, padx=20, pady=10)
 
-    label = ttk.Label(root, text="TrackSmart AI – Main Menu", font=("Arial", 16))
-    label.pack(pady=10)
+    # Header with extra spacing
+    header = ttk.Frame(main)
+    header.pack(fill='x', pady=(0,20))
+    
+    ttk.Label(header, text="TrackSmart AI", 
+             style='Header.TLabel').pack(side='left', pady=(0, 10))
+    ttk.Button(header, text="👋 Logout", 
+               style='MenuButton.TButton', 
+               command=logout).pack(side='right', pady=10)
 
-    # Create notebook for tabs
-    notebook = ttk.Notebook(root)
-    notebook.pack(fill='both', expand=True, padx=10, pady=5)
+    # Content sections
+    content = ttk.Frame(main)
+    content.pack(fill='both', expand=True)
+    
+    # Make columns equal width
+    content.columnconfigure(0, weight=1)
+    content.columnconfigure(1, weight=1)
 
-    # Create tabs
-    locations_tab = ttk.Frame(notebook)
-    reminders_tab = ttk.Frame(notebook)
-    tools_tab = ttk.Frame(notebook)
-    settings_tab = ttk.Frame(notebook)
+    # Location Tools Section
+    loc_frame = ttk.LabelFrame(content, text="📍 Location Tools", style='Section.TLabelframe')
+    loc_frame.grid(row=0, column=0, padx=5, pady=5, sticky='nsew')
+    
+    for btn_text, cmd in [
+        ("Log Location (Manual)", log_location),
+        ("Auto-Detect Location", auto_log_location),
+        ("View Dashboard", show_dashboard),
+        ("View Map", show_map_with_locations)
+    ]:
+        ttk.Button(loc_frame, text=btn_text, style='MenuButton.TButton',
+                  command=cmd).pack(padx=5, pady=3, fill='x')
 
-    notebook.add(locations_tab, text="📍 Locations")
-    notebook.add(reminders_tab, text="⏰ Reminders")
-    notebook.add(tools_tab, text="🛠️ Tools")
-    notebook.add(settings_tab, text="⚙️ Settings")
+    # Analytics Section
+    analytics_frame = ttk.LabelFrame(content, text="📊 Analytics", style='Section.TLabelframe')
+    analytics_frame.grid(row=0, column=1, padx=5, pady=5, sticky='nsew')
+    
+    for btn_text, cmd in [
+        ("Location Statistics", show_location_stats),
+        ("Activity Timeline", show_activity_timeline),
+        ("Search History", search_location_history),
+        ("Export Data", export_data)
+    ]:
+        ttk.Button(analytics_frame, text=btn_text, style='MenuButton.TButton',
+                  command=cmd).pack(padx=5, pady=3, fill='x')
 
-    # Locations tab
-    ttk.Button(locations_tab, text="📍 Log Location (Manual)", width=30, command=log_location).pack(pady=5)
-    ttk.Button(locations_tab, text="🌍 Auto-Detect Location", width=30, command=auto_log_location).pack(pady=5)
-    ttk.Button(locations_tab, text="📊 View Dashboard", width=30, command=show_dashboard).pack(pady=5)
-    ttk.Button(locations_tab, text="📈 View Location Stats", width=30, command=show_location_stats).pack(pady=5)
-    ttk.Button(locations_tab, text="🗺️ View Map with Locations", width=30, command=show_map_with_locations).pack(pady=5)
-    ttk.Button(locations_tab, text="🔍 Search History", width=30, command=search_location_history).pack(pady=5)
+    # Tools Section
+    tools_frame = ttk.LabelFrame(content, text="🛠️ Tools", style='Section.TLabelframe')
+    tools_frame.grid(row=1, column=0, padx=5, pady=5, sticky='nsew')
+    
+    for btn_text, cmd in [
+        ("Set Reminder", add_reminder),
+        ("Manage Reminders", manage_reminders),
+        ("AI Assistant", open_ai_assistant),
+        ("Export to CSV", export_logs_to_csv)
+    ]:
+        ttk.Button(tools_frame, text=btn_text, style='MenuButton.TButton',
+                  command=cmd).pack(padx=5, pady=3, fill='x')
 
-    # Reminders tab
-    ttk.Button(reminders_tab, text="⏰ Set Location Reminder", width=30, command=add_reminder).pack(pady=5)
-    ttk.Button(reminders_tab, text="🧹 Manage Reminders", width=30, command=manage_reminders).pack(pady=5)
+    # Settings Section
+    settings_frame = ttk.LabelFrame(content, text="⚙️ Settings", style='Section.TLabelframe')
+    settings_frame.grid(row=1, column=1, padx=5, pady=5, sticky='nsew')
+    
+    for btn_text, cmd in [
+        ("App Settings", show_settings),
+        ("Toggle Theme", toggle_theme),
+        ("Clear All Data", clear_all_data)
+    ]:
+        ttk.Button(settings_frame, text=btn_text, style='MenuButton.TButton',
+                  command=cmd).pack(padx=5, pady=3, fill='x')
 
-    # Tools tab
-    ttk.Button(tools_tab, text="🤖 AI Assistant", width=30, command=open_ai_assistant).pack(pady=5)
-    ttk.Button(tools_tab, text="💾 Export Data", width=30, command=export_data).pack(pady=5)
-    ttk.Button(tools_tab, text="📦 Export Logs to CSV", width=30, command=export_logs_to_csv).pack(pady=5)
-    ttk.Button(tools_tab, text="📅 Activity Timeline", width=30, command=show_activity_timeline).pack(pady=5)
-    ttk.Button(tools_tab, text="🗑️ Clear All Data", width=30, command=clear_all_data).pack(pady=5)
-
-    # Settings tab
-    ttk.Button(settings_tab, text="⚙️ Settings", width=30, command=show_settings).pack(pady=5)
-    ttk.Button(settings_tab, text="🌓 Toggle Theme", width=30, command=toggle_theme).pack(pady=5)
-
-    # Logout button remains outside tabs
-    ttk.Button(root, text="👋 Logout", width=30, command=logout).pack(pady=10)
-    ttk.Label(root, text="Made with Python + AI + SQLite", font=("Arial", 10)).pack(side="bottom", pady=10)
+    # Footer with adjusted padding
+    footer = ttk.Frame(main)
+    footer.pack(fill='x', pady=(15, 5))
+    ttk.Label(footer, text="TrackSmart AI v1.0", 
+             style='Regular.TLabel').pack(side='right')
 
 def show_login_menu():
     for widget in root.winfo_children():
         widget.destroy()
 
-    label = ttk.Label(root, text="Welcome to TrackSmart AI", font=("Arial", 16))
-    label.pack(pady=20)
+    login_frame = ttk.Frame(root, style='Main.TFrame', padding=20)
+    login_frame.pack(fill='both', expand=True)
+    
+    login_frame.grid_rowconfigure(0, weight=1)
+    login_frame.grid_rowconfigure(5, weight=1)  # Updated to accommodate new button
+    login_frame.grid_columnconfigure(0, weight=1)
+    
+    ttk.Label(login_frame,
+             text="Welcome to TrackSmart AI",
+             style='Heading.TLabel').grid(row=1, pady=20)
+             
+    ttk.Button(login_frame,
+              text="🔐 Login",
+              style='Primary.TButton',
+              width=30,
+              command=login).grid(row=2, pady=5)
+              
+    ttk.Button(login_frame,
+              text="🆕 Register",
+              style='Secondary.TButton', 
+              width=30,
+              command=register).grid(row=3, pady=5)
+              
+    ttk.Button(login_frame,
+              text="📖 User Guide",
+              style='Secondary.TButton',
+              width=30,
+              command=show_guidebook).grid(row=4, pady=5)
 
-    ttk.Button(root, text="🔐 Login", width=30, command=login).pack(pady=10)
-    ttk.Button(root, text="🆕 Register", width=30, command=register).pack(pady=10)
+def show_guidebook():
+    guide_win = tk.Toplevel(root)
+    guide_win.title("TrackSmart AI - User Guide")
+    guide_win.geometry("600x700")
+    
+    # Create scrollable frame for content
+    guide_frame = create_scrollable_frame(guide_win)
+    
+    sections = {
+        "Getting Started": """
+• Login or Register: Create an account to start using TrackSmart AI
+• After logging in, you'll see the main dashboard with various tools
+""",
+        "Location Tools": """
+• Manual Log: Enter your location manually
+• Auto-Detect: Let the app detect your location automatically
+• Dashboard: View your location history
+• Map View: See your locations on an interactive map
+""",
+        "Analytics": """
+• Location Statistics: View graphs of your most visited places
+• Activity Timeline: See your movement patterns over time
+• Search History: Find specific location entries
+• Export Data: Save your data in various formats
+""",
+        "Tools": """
+• Set Reminder: Create location-based reminders
+• Manage Reminders: Edit or delete your reminders
+• AI Assistant: Get smart suggestions based on your patterns
+• Export to CSV: Download your data in spreadsheet format
+""",
+        "Settings": """
+• Theme: Switch between light and dark modes
+• Auto-Location: Enable/disable automatic location detection
+• Data Management: Options to manage or clear your data
+"""
+    }
+    
+    ttk.Label(guide_frame, text="Welcome to TrackSmart AI", 
+             style='Header.TLabel').pack(pady=(0,20))
+             
+    for title, content in sections.items():
+        section_frame = ttk.LabelFrame(guide_frame, text=title, style='Section.TLabelframe')
+        section_frame.pack(fill='x', pady=10, padx=5)
+        ttk.Label(section_frame, text=content, 
+                 style='Regular.TLabel',
+                 wraplength=500).pack(pady=10, padx=10)
+    
+    ttk.Button(guide_frame, text="Close", 
+              style='Secondary.TButton',
+              command=guide_win.destroy).pack(pady=20)
 
 def show_settings():
     settings_win = tk.Toplevel(root)
@@ -909,11 +1355,35 @@ def show_settings():
     ttk.Button(settings_win, text="Save", command=save_settings).pack(pady=10)
 
 # --- App Launch ---
-root = tk.Tk()
-root.title("TrackSmart AI – Login")
-root.geometry("600x700")
-show_login_menu()
+def initialize_app():
+    root.title("TrackSmart AI")
+    
+    # Set application icon
+    icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.ico")
+    if os.path.exists(icon_path):
+        try:
+            root.iconbitmap(icon_path)
+        except tk.TclError:
+            print("Could not load application icon")
+    
+    # Set initial window size and position
+    width, height = map(int, WINDOW_SIZES['main'].split('x'))
+    center_window(root, width, height)
+    root.minsize(800, 600)
+    
+    # Initialize styles before showing any windows
+    setup_styles()
+    
+    # Show login menu
+    try:
+        show_login_menu()
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to start application: {str(e)}")
+        root.quit()
 
-root.mainloop()
+if __name__ == "__main__":
+    root = tk.Tk()
+    initialize_app()
+    root.mainloop()
 
 # --- END ---

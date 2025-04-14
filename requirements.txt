@@ -1,6 +1,7 @@
 tkinter
-sqlite3
-requests
-matplotlib
-folium
-geopy
+pillow>=9.0.0
+requests>=2.28.0
+matplotlib>=3.5.0
+folium>=0.12.0
+geopy>=2.2.0
+tkcalendar>=1.6.0

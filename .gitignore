@@ -1,0 +1,20 @@
+# Database
+*.db
+tracksmart.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Temp files
+*.log
+.DS_Store

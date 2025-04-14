@@ -17,7 +17,7 @@ Whether you're a student tracking exam centers, a traveler logging favorite plac
 ## 🚀 Features
 
 | Category | Features |
-|---------|----------|
+|----------|----------|
 | 📍 Location | Manual log, auto-detect via IP, geocoding, history |
 | 📝 Notes & Reminders | Save notes to location, tag-based filtering, edit/delete reminders |
 | 🤖 AI Assistant | Time-aware tips, smart tagging for notes |
@@ -30,7 +30,6 @@ Whether you're a student tracking exam centers, a traveler logging favorite plac
 ---
 
 ## 🛠 Tech Stack
-
 - **Language**: Python 3.11
 - **GUI**: Tkinter + TTK (modern layout)
 - **DB**: SQLite (local database)
@@ -62,7 +61,7 @@ python main.py
 ---
 
 ## 📸 Screenshots
-Screenshots are stored in [assets/screenshots/](assets/screenshots/)
+Coming soon – interface previews of main dashboard, notes, stats, map view
 
 ---
 
