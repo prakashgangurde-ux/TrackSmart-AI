@@ -1,6 +1,10 @@
-# Database
+# Database & Data files
 *.db
 tracksmart.db
+*.sqlite3
+*.csv
+*.json
+!config.example.json
 
 # Python
 __pycache__/
@@ -8,13 +12,43 @@ __pycache__/
 *$py.class
 *.so
 .Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
 env/
 venv/
+ENV/
+.env
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+.project
+.pydevproject
 
-# Temp files
+# Generated files
+location_map.html
 *.log
+logs/
+tmp/
+
+# OS Specific
 .DS_Store
+Thumbs.db
+desktop.ini

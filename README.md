@@ -41,19 +41,36 @@ Whether you're a student tracking exam centers, a traveler logging favorite plac
 
 ## 🧪 Getting Started
 
-### 1. Clone the Repository
+### Prerequisites
+- Python 3.11 or higher
+- pip package manager
+- Git (for cloning)
+
+### 1. Clone & Setup
 ```bash
+# Clone the repository
 git clone https://github.com/YOUR_USERNAME/TrackSmart-AI.git
 cd TrackSmart-AI
-```
 
-### 2. Install Requirements
-```bash
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
-> Requirements include: `folium`, `requests`, `matplotlib`, `pillow`
 
-### 3. Run the App
+### 2. Configuration
+1. Create `config.json` in root directory:
+```json
+{
+    "WEATHER_API_KEY": "your_api_key_here",
+    "DEFAULT_LOCATION": "Mumbai, India"
+}
+```
+2. Set up assets folder with icon.ico
+
+### 3. Run the Application
 ```bash
 python main.py
 ```
@@ -61,7 +78,17 @@ python main.py
 ---
 
 ## 📸 Screenshots
-Coming soon – interface previews of main dashboard, notes, stats, map view
+
+### Main Dashboard
+![Dashboard](assets/screenshots/dashboard.png)
+*Main interface with location tracking and AI suggestions*
+
+### Features Overview
+| Feature | Screenshot |
+|---------|------------|
+| Location Tracking | ![Tracking](assets/screenshots/tracking.png) |
+| AI Assistant | ![AI](assets/screenshots/ai-assistant.png) |
+| Analytics | ![Stats](assets/screenshots/stats.png) |
 
 ---
 
@@ -88,6 +115,22 @@ MIT License – free for personal, educational, or commercial use with attributi
 **Name**: PRAKASH GANGURDE  
 **Institution**: BCA, 2025  
 **GitHub**: https://github.com/YOUR_USERNAME
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit changes (`git commit -m 'Add AmazingFeature'`)
+4. Push to branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+### Coding Standards
+- Follow PEP 8 guidelines
+- Add docstrings for new functions
+- Include type hints
+- Write unit tests for new features
 
 ---
 

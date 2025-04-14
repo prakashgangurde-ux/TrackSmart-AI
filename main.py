@@ -1,5 +1,4 @@
 # TrackSmart AI – Tkinter Desktop Version
-# Author: You + ChatGPT
 # Features: User Login, Location Reminder, AI Suggestions, SQLite Storage, Auto Location via IP, Stats & Graphs, Smart AI UI
 
 import tkinter as tk
@@ -293,14 +292,92 @@ def create_scrollable_frame(parent):
 
 # --- AI Assistant Logic ---
 def ai_suggestion():
+    """Enhanced AI suggestions based on user patterns and time context"""
     now = datetime.now()
     hour = now.hour
-    if hour < 12:
-        return "Good morning! Don't forget to review your schedule."
-    elif 12 <= hour < 18:
-        return "Good afternoon! Have you completed your goals for today?"
-    else:
-        return "Good evening! Time to relax or plan for tomorrow."
+    weekday = now.strftime('%A')
+    
+    try:
+        # Get user's location patterns
+        cursor.execute("""
+            SELECT location, COUNT(*) as visits,
+                   strftime('%H', timestamp) as hour
+            FROM locations 
+            WHERE user_id = ?
+            GROUP BY location, hour
+            ORDER BY visits DESC
+        """, (current_user_id,))
+        patterns = cursor.fetchall()
+        
+        # Get recent reminders
+        cursor.execute("""
+            SELECT message FROM reminders 
+            WHERE user_id = ? AND triggered = 0
+            ORDER BY id DESC LIMIT 1
+        """, (current_user_id,))
+        pending_reminder = cursor.fetchone()
+        
+        suggestions = []
+        
+        # Time-based greeting
+        if hour < 12:
+            suggestions.append("Good morning!")
+        elif hour < 18:
+            suggestions.append("Good afternoon!")
+        else:
+            suggestions.append("Good evening!")
+            
+        # Location pattern suggestions
+        if patterns:
+            common_location = patterns[0][0]
+            common_hour = int(patterns[0][2])
+            if abs(hour - common_hour) <= 1:
+                suggestions.append(f"You usually visit {common_location} around this time.")
+        
+        # Day-specific suggestions
+        if weekday in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']:
+            suggestions.append("Don't forget to check your work schedule.")
+        elif weekday in ['Saturday', 'Sunday']:
+            suggestions.append("It's the weekend! Time to relax or catch up on personal tasks.")
+        
+        # Weather-based suggestions
+        try:
+            cursor.execute("""
+                SELECT location FROM locations 
+                WHERE user_id = ? 
+                ORDER BY timestamp DESC LIMIT 1
+            """, (current_user_id,))
+            last_location = cursor.fetchone()
+            if last_location:
+                weather = get_weather(last_location[0])
+                if weather:
+                    if weather['condition'].lower() in ['rain', 'snow', 'thunderstorm']:
+                        suggestions.append(f"⚠️ {weather['condition']} expected. Plan indoor activities or carry an umbrella!")
+                    elif weather['temp'] > 30:
+                        suggestions.append("🌡️ It's very hot today. Stay hydrated!")
+                    elif weather['temp'] < 10:
+                        suggestions.append("🌡️ It's cold outside. Remember to dress warmly!")
+        except Exception:
+            pass
+            
+        # Reminder notifications
+        if pending_reminder:
+            suggestions.append(f"📌 Reminder: {pending_reminder[0]}")
+        
+        # Add productivity tips
+        productivity_tips = [
+            "💡 Take regular breaks to stay productive.",
+            "💡 Consider updating your location reminders.",
+            "💡 Review your travel patterns in the dashboard.",
+            "💡 Keep your frequently visited locations marked for quick access."
+        ]
+        suggestions.append(random.choice(productivity_tips))
+        
+        return "\n\n".join(suggestions)
+        
+    except Exception as e:
+        print(f"AI suggestion error: {e}")
+        return "I'm here to help! Let me know if you need assistance."
 
 def smart_note_suggestions(note_text):
     """
@@ -861,15 +938,91 @@ def export_logs_to_csv():
     ttk.Button(date_win, text="Export", command=export_range).pack(pady=20)
 
 def open_ai_assistant():
+    """Enhanced AI Assistant Window"""
     ai_win = tk.Toplevel(root)
     ai_win.title("AI Assistant")
-    ai_win.geometry("350x200")
-
-    suggestion = ai_suggestion()
-    tk.Label(ai_win, text="AI Suggestion:", font=("Arial", 12)).pack(pady=10)
-    tk.Message(ai_win, text=suggestion, width=300, font=("Arial", 10)).pack(pady=5)
-
-    tk.Button(ai_win, text="Back to Menu", command=ai_win.destroy).pack(pady=10)
+    ai_win.geometry("450x600")
+    center_window(ai_win, 450, 600)
+    
+    # Create main frame
+    main_frame = ttk.Frame(ai_win)
+    main_frame.pack(fill='both', expand=True, padx=20, pady=10)
+    
+    # Assistant header
+    ttk.Label(main_frame, text="🤖 TrackSmart AI Assistant",
+             style='Header.TLabel').pack(pady=10)
+    
+    # Suggestions area with scrolled text
+    suggestions_frame = ttk.LabelFrame(main_frame, text="Personalized Suggestions")
+    suggestions_frame.pack(fill='both', expand=True, pady=10)
+    
+    suggestions_text = tk.Text(suggestions_frame, wrap='word', height=10,
+                             font=(STYLES['FONT_FAMILY'], 10))
+    suggestions_text.pack(fill='both', expand=True, padx=10, pady=5)
+    suggestions_text.insert('1.0', ai_suggestion())
+    suggestions_text.config(state='disabled')
+    
+    # Quick Actions
+    actions_frame = ttk.LabelFrame(main_frame, text="Quick Actions")
+    actions_frame.pack(fill='x', pady=10)
+    
+    def refresh_suggestions():
+        suggestions_text.config(state='normal')
+        suggestions_text.delete('1.0', tk.END)
+        suggestions_text.insert('1.0', ai_suggestion())
+        suggestions_text.config(state='disabled')
+    
+    actions = [
+        ("🔄 Refresh Suggestions", refresh_suggestions),
+        ("📍 Quick Location Log", log_location),
+        ("⚡ Auto-Detect Location", auto_log_location),
+        ("🗺️ View Map", show_map_with_locations),
+        ("📊 View Statistics", show_location_stats)
+    ]
+    
+    # Create two columns for actions
+    left_frame = ttk.Frame(actions_frame)
+    left_frame.pack(side='left', fill='both', expand=True, padx=5, pady=5)
+    right_frame = ttk.Frame(actions_frame)
+    right_frame.pack(side='right', fill='both', expand=True, padx=5, pady=5)
+    
+    for i, (text, cmd) in enumerate(actions):
+        frame = left_frame if i % 2 == 0 else right_frame
+        ttk.Button(frame, text=text, command=cmd).pack(fill='x', pady=2)
+    
+    # Status bar
+    status_frame = ttk.Frame(main_frame)
+    status_frame.pack(fill='x', pady=5)
+    
+    # Get last activity
+    cursor.execute("""
+        SELECT location, timestamp 
+        FROM locations 
+        WHERE user_id = ? 
+        ORDER BY timestamp DESC LIMIT 1
+    """, (current_user_id,))
+    last_activity = cursor.fetchone()
+    
+    if last_activity:
+        status_text = f"Last location: {last_activity[0]}"
+    else:
+        status_text = "No recent activity"
+        
+    ttk.Label(status_frame, text=status_text,
+             font=(STYLES['FONT_FAMILY'], 8)).pack(side='left')
+    
+    # Refresh button in status bar
+    ttk.Button(status_frame, text="↻",
+              width=3,
+              command=refresh_suggestions).pack(side='right')
+    
+    # Auto-refresh suggestions every 5 minutes
+    def auto_refresh():
+        if ai_win.winfo_exists():
+            refresh_suggestions()
+            ai_win.after(300000, auto_refresh)  # 5 minutes
+    
+    ai_win.after(300000, auto_refresh)
 
 def toggle_theme():
     global DARK_MODE
@@ -1168,15 +1321,25 @@ def show_main_menu():
     main = ttk.Frame(root, style='TFrame')
     main.pack(fill='both', expand=True, padx=20, pady=10)
 
-    # Header with extra spacing
+    # Header with extra spacing and AI button
     header = ttk.Frame(main)
     header.pack(fill='x', pady=(0,20))
     
-    ttk.Label(header, text="TrackSmart AI", 
+    # Left side of header
+    header_left = ttk.Frame(header)
+    header_left.pack(side='left', fill='x')
+    ttk.Label(header_left, text="TrackSmart AI", 
              style='Header.TLabel').pack(side='left', pady=(0, 10))
-    ttk.Button(header, text="👋 Logout", 
-               style='MenuButton.TButton', 
-               command=logout).pack(side='right', pady=10)
+
+    # Right side of header with buttons
+    header_right = ttk.Frame(header)
+    header_right.pack(side='right', fill='x')
+    ttk.Button(header_right, text="🤖 AI Assistant", 
+               style='MenuButton.TButton',
+               command=open_ai_assistant).pack(side='left', padx=5, pady=10)
+    ttk.Button(header_right, text="👋 Logout", 
+               style='MenuButton.TButton',
+               command=logout).pack(side='left', pady=10)
 
     # Content sections
     content = ttk.Frame(main)
@@ -1212,18 +1375,34 @@ def show_main_menu():
         ttk.Button(analytics_frame, text=btn_text, style='MenuButton.TButton',
                   command=cmd).pack(padx=5, pady=3, fill='x')
 
-    # Tools Section
+    # Tools Section with reorganized buttons
     tools_frame = ttk.LabelFrame(content, text="🛠️ Tools", style='Section.TLabelframe')
     tools_frame.grid(row=1, column=0, padx=5, pady=5, sticky='nsew')
     
+    # Create two columns for tools
+    tools_left = ttk.Frame(tools_frame)
+    tools_left.pack(side='left', fill='both', expand=True, padx=2)
+    tools_right = ttk.Frame(tools_frame)
+    tools_right.pack(side='right', fill='both', expand=True, padx=2)
+    
+    # Left column buttons
     for btn_text, cmd in [
         ("Set Reminder", add_reminder),
         ("Manage Reminders", manage_reminders),
-        ("AI Assistant", open_ai_assistant),
-        ("Export to CSV", export_logs_to_csv)
+        ("Export to CSV", export_logs_to_csv),
+        ("Convert GPS Logs", convert_gps_logs),
     ]:
-        ttk.Button(tools_frame, text=btn_text, style='MenuButton.TButton',
-                  command=cmd).pack(padx=5, pady=3, fill='x')
+        ttk.Button(tools_left, text=btn_text, style='MenuButton.TButton',
+                  command=cmd).pack(padx=3, pady=3, fill='x')
+
+    # Right column buttons
+    for btn_text, cmd in [
+        ("Enhanced Map", generate_enhanced_map),
+        ("Live Location", setup_live_location),
+        ("Route Planner", lambda: messagebox.showinfo("Coming Soon", "Route planning feature coming soon!")),
+    ]:
+        ttk.Button(tools_right, text=btn_text, style='MenuButton.TButton',
+                  command=cmd).pack(padx=3, pady=3, fill='x')
 
     # Settings Section
     settings_frame = ttk.LabelFrame(content, text="⚙️ Settings", style='Section.TLabelframe')
@@ -1281,36 +1460,61 @@ def show_guidebook():
     guide_win.title("TrackSmart AI - User Guide")
     guide_win.geometry("600x700")
     
-    # Create scrollable frame for content
     guide_frame = create_scrollable_frame(guide_win)
     
     sections = {
         "Getting Started": """
 • Login or Register: Create an account to start using TrackSmart AI
-• After logging in, you'll see the main dashboard with various tools
+• After logging in, you'll access the main dashboard with various features
+• The interface is organized into sections: Location Tools, Analytics, Tools, and Settings
+""",
+        "AI Assistant": """
+• Smart Suggestions: Get personalized recommendations based on your patterns
+• Weather Integration: Receive weather-based activity suggestions
+• Location Patterns: Learn about your frequently visited places
+• Time-Aware: Contextual suggestions based on time of day and day of week
+• Quick Actions: Access common functions directly from the AI Assistant
+• Auto-Refresh: Suggestions update automatically every 5 minutes
 """,
         "Location Tools": """
-• Manual Log: Enter your location manually
-• Auto-Detect: Let the app detect your location automatically
-• Dashboard: View your location history
-• Map View: See your locations on an interactive map
+• Manual Log: Enter your current location manually
+• Auto-Detect: Automatically detect location using IP geolocation
+• Live Location: Real-time location tracking with movement detection
+• Dashboard: Comprehensive view of your location history
+• Enhanced Map: Interactive map with location markers and notes
+• GPS Log Conversion: Convert raw GPS data to enriched location information
 """,
-        "Analytics": """
-• Location Statistics: View graphs of your most visited places
-• Activity Timeline: See your movement patterns over time
-• Search History: Find specific location entries
-• Export Data: Save your data in various formats
+        "Analytics & Reports": """
+• Location Statistics: Visual graphs of your most visited places
+• Activity Timeline: Chronological view of your movement patterns
+• Search History: Find and filter specific location entries
+• Export Options: Save data in CSV or JSON formats
+• Custom Date Ranges: Generate reports for specific time periods
+• Location Notes: Add and manage notes for specific locations
 """,
-        "Tools": """
-• Set Reminder: Create location-based reminders
-• Manage Reminders: Edit or delete your reminders
-• AI Assistant: Get smart suggestions based on your patterns
-• Export to CSV: Download your data in spreadsheet format
+        "Smart Features": """
+• Location Reminders: Set location-based notifications
+• Weather Updates: Real-time weather information for locations
+• Pattern Recognition: Analysis of your movement habits
+• Auto-Tracking: Optional automatic location logging
+• Route Planning: Plan and optimize your travel routes
+• Favorite Places: Mark and quickly access frequent locations
 """,
-        "Settings": """
-• Theme: Switch between light and dark modes
-• Auto-Location: Enable/disable automatic location detection
-• Data Management: Options to manage or clear your data
+        "Settings & Customization": """
+• Theme Options: Switch between light and dark modes
+• Notification Settings: Configure alert preferences
+• Auto-Location: Enable/disable automatic detection
+• Data Management: Export, backup, or clear your data
+• Privacy Controls: Manage your location sharing preferences
+• Profile Settings: Update your account information
+""",
+        "Tips & Best Practices": """
+• Regular Updates: Keep your location log current for better insights
+• Use Tags: Organize locations with meaningful tags
+• Backup Data: Export your data periodically
+• Check AI Suggestions: Get daily recommendations
+• Review Timeline: Monitor your movement patterns
+• Update Notes: Keep location notes current and relevant
 """
     }
     
@@ -1324,9 +1528,17 @@ def show_guidebook():
                  style='Regular.TLabel',
                  wraplength=500).pack(pady=10, padx=10)
     
-    ttk.Button(guide_frame, text="Close", 
+    # Add version and support info
+    info_frame = ttk.Frame(guide_frame)
+    info_frame.pack(fill='x', pady=20)
+    
+    ttk.Label(info_frame, 
+             text="Version 1.0 | For support: support@tracksmart.ai",
+             style='Regular.TLabel').pack(side='left')
+             
+    ttk.Button(info_frame, text="Close",
               style='Secondary.TButton',
-              command=guide_win.destroy).pack(pady=20)
+              command=guide_win.destroy).pack(side='right')
 
 def show_settings():
     settings_win = tk.Toplevel(root)
@@ -1359,13 +1571,20 @@ def show_settings():
 def initialize_app():
     root.title("TrackSmart AI")
     
-    # Set application icon
-    icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.ico")
+    # Set application icon using tracksmart_icon.ico
+    icon_path = os.path.join(os.path.dirname(__file__), "assets", "tracksmart_icon.ico")
     if os.path.exists(icon_path):
         try:
             root.iconbitmap(icon_path)
-        except tk.TclError:
-            print("Could not load application icon")
+        except tk.TclError as e:
+            print(f"Could not load application icon: {e}")
+            # Fallback to original icon if available
+            fallback_icon = os.path.join(os.path.dirname(__file__), "assets", "icon.ico")
+            if os.path.exists(fallback_icon):
+                try:
+                    root.iconbitmap(fallback_icon)
+                except tk.TclError:
+                    print("Could not load fallback icon")
     
     # Set initial window size and position
     width, height = map(int, WINDOW_SIZES['main'].split('x'))
@@ -1381,6 +1600,305 @@ def initialize_app():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to start application: {str(e)}")
         root.quit()
+
+def convert_gps_logs():
+    """Convert raw GPS logs to enriched CSV with location names"""
+    input_file = filedialog.askopenfilename(
+        title="Select GPS Log File",
+        filetypes=[("Text files", "*.txt"), ("All files", "*.*")]
+    )
+    if not input_file:
+        return
+
+    output_file = filedialog.asksaveasfilename(
+        defaultextension=".csv",
+        filetypes=[("CSV files", "*.csv")],
+        title="Save Enriched Location Data"
+    )
+    if not output_file:
+        return
+
+    try:
+        geolocator = Nominatim(user_agent="tracksmart_ai")
+        
+        # Create progress window
+        progress_win = tk.Toplevel()
+        progress_win.title("Converting Logs")
+        progress_label = ttk.Label(progress_win, text="Converting GPS logs...")
+        progress_label.pack(pady=10)
+        progress_bar = ttk.Progressbar(progress_win, mode='indeterminate')
+        progress_bar.pack(pady=10, padx=20)
+        progress_bar.start()
+
+        with open(input_file, 'r', encoding='utf-8') as f, open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Date', 'Time', 'Latitude', 'Longitude', 'Location', 'Accuracy'])
+            
+            for line in f:
+                # Expected format: "YYYY-MM-DD HH:MM:SS,LAT,LON"
+                try:
+                    datetime_str, lat, lon = line.strip().split(',')
+                    date, time = datetime_str.split(' ')
+                    lat, lon = float(lat), float(lon)
+                    
+                    # Reverse geocoding with error handling
+                    try:
+                        location = geolocator.reverse(f"{lat}, {lon}", timeout=10)
+                        location_name = location.address if location else "Unknown"
+                        accuracy = location.raw.get('importance', 'N/A') if location else 'N/A'
+                    except GeocoderTimedOut:
+                        location_name = "Geocoding Timeout"
+                        accuracy = 'N/A'
+                    except Exception as e:
+                        location_name = f"Geocoding Error: {str(e)}"
+                        accuracy = 'N/A'
+                    
+                    writer.writerow([date, time, lat, lon, location_name, accuracy])
+                    progress_win.update()
+                    
+                except (ValueError, IndexError):
+                    continue
+
+        progress_win.destroy()
+        messagebox.showinfo("Success", "GPS logs converted successfully!")
+    
+    except Exception as e:
+        if 'progress_win' in locals():
+            progress_win.destroy()
+        messagebox.showerror("Error", f"Failed to convert logs: {str(e)}")
+
+def generate_enhanced_map():
+    """Generate an interactive map with location history and notes"""
+    if not current_user_id:
+        messagebox.showerror("Error", "Please login first!")
+        return
+        
+    try:
+        # Fetch all locations with notes
+        cursor.execute("""
+            SELECT l.location, l.latitude, l.longitude, 
+                   GROUP_CONCAT(IFNULL(n.note, ''), '|') as notes,
+                   IFNULL(m.color, 'red') as color
+            FROM locations l
+            LEFT JOIN location_notes n ON l.location = n.location 
+                AND l.user_id = n.user_id
+            LEFT JOIN marked_locations m ON l.location = m.location 
+                AND l.user_id = m.user_id
+            WHERE l.user_id = ? AND l.latitude IS NOT NULL
+            GROUP BY l.location, l.latitude, l.longitude
+        """, (current_user_id,))
+        
+        locations = cursor.fetchall()
+        
+        if not locations:
+            messagebox.showinfo("Map", "No location data available")
+            return
+            
+        # Create map centered on first location
+        center_lat = sum(loc[1] for loc in locations if loc[1]) / len(locations)
+        center_lon = sum(loc[2] for loc in locations if loc[2]) / len(locations)
+        m = folium.Map(location=[center_lat, center_lon], zoom_start=10)
+        
+        # Add locations with popups containing notes
+        for loc_name, lat, lon, notes, color in locations:
+            if lat and lon:
+                popup_html = f"<b>{loc_name}</b><br>"
+                if notes and notes != '|':
+                    popup_html += "<br>".join(filter(None, notes.split("|")))
+                
+                folium.Marker(
+                    location=[lat, lon],
+                    popup=folium.Popup(popup_html, max_width=300),
+                    icon=folium.Icon(color=color or 'red')
+                ).add_to(m)
+        
+        # Save and open the map
+        map_file = os.path.join(os.path.dirname(__file__), "location_map.html")
+        m.save(map_file)
+        webbrowser.open('file://' + os.path.abspath(map_file))
+        
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to generate map: {str(e)}")
+
+def setup_live_location():
+    """Create and open live location detector page"""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Live Location Detector</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            body { 
+                font-family: Arial; 
+                padding: 20px;
+                max-width: 800px;
+                margin: 0 auto;
+                background: #f5f5f5;
+            }
+            #location { 
+                margin: 20px 0; 
+                padding: 15px;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            button { 
+                padding: 12px 20px;
+                margin: 5px;
+                border: none;
+                border-radius: 4px;
+                background: #2962ff;
+                color: white;
+                cursor: pointer;
+                transition: background 0.3s;
+            }
+            button:hover {
+                background: #1565c0;
+            }
+            .error {
+                color: #d32f2f;
+                padding: 10px;
+                background: #ffebee;
+                border-radius: 4px;
+            }
+            .coords {
+                font-family: monospace;
+                font-size: 1.1em;
+            }
+        </style>
+    </head>
+    <body>
+        <h2>Live Location Detector</h2>
+        <div id="location">Waiting for location...</div>
+        <button onclick="getLocation()">Update Location</button>
+        <button onclick="sendToApp()">Send to TrackSmart</button>
+        <button onclick="startTracking()">Start Tracking</button>
+        <button onclick="stopTracking()" style="display:none;" id="stopBtn">Stop Tracking</button>
+        
+        <script>
+        let watchId = null;
+        let lastPosition = null;
+        const MIN_DISTANCE = 10; // meters
+        
+        function getLocation() {
+            if (navigator.geolocation) {
+                document.getElementById("location").innerHTML = "Getting location...";
+                navigator.geolocation.getCurrentPosition(showPosition, showError, {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                });
+            } else {
+                document.getElementById("location").innerHTML = 
+                    '<div class="error">Geolocation not supported</div>';
+            }
+        }
+        
+        function startTracking() {
+            if (navigator.geolocation) {
+                watchId = navigator.geolocation.watchPosition(showPosition, showError, {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                });
+                document.getElementById("stopBtn").style.display = "inline";
+            }
+        }
+        
+        function stopTracking() {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                document.getElementById("stopBtn").style.display = "none";
+            }
+        }
+        
+        function showPosition(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+            const timestamp = new Date(position.timestamp).toLocaleString();
+            
+            document.getElementById("location").innerHTML = 
+                `<div class="coords">
+                    Latitude: ${lat.toFixed(6)}<br>
+                    Longitude: ${lon.toFixed(6)}<br>
+                    Accuracy: ${accuracy.toFixed(1)}m<br>
+                    Time: ${timestamp}
+                </div>`;
+            
+            window.currentPosition = {lat, lon, accuracy, timestamp};
+            
+            // Auto-send if significant movement detected
+            if (lastPosition && calculateDistance(lastPosition, {lat, lon}) > MIN_DISTANCE) {
+                sendToApp();
+            }
+            lastPosition = {lat, lon};
+        }
+        
+        function showError(error) {
+            let message = "Location error: ";
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    message += "Permission denied";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    message += "Position unavailable";
+                    break;
+                case error.TIMEOUT:
+                    message += "Request timeout";
+                    break;
+                default:
+                    message += "Unknown error";
+                    break;
+            }
+            document.getElementById("location").innerHTML = 
+                `<div class="error">${message}</div>`;
+        }
+        
+        function calculateDistance(pos1, pos2) {
+            const R = 6371e3; // Earth's radius in meters
+            const φ1 = pos1.lat * Math.PI/180;
+            const φ2 = pos2.lat * Math.PI/180;
+            const Δφ = (pos2.lat-pos1.lat) * Math.PI/180;
+            const Δλ = (pos2.lon-pos1.lon) * Math.PI/180;
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c; // in meters
+        }
+        
+        function sendToApp() {
+            if (window.currentPosition) {
+                const url = `tracksmart://location?` +
+                    `lat=${window.currentPosition.lat}&` +
+                    `lon=${window.currentPosition.lon}&` +
+                    `accuracy=${window.currentPosition.accuracy}&` +
+                    `time=${encodeURIComponent(window.currentPosition.timestamp)}`;
+                window.location.href = url;
+            } else {
+                alert("No location available yet");
+            }
+        }
+        
+        // Get initial location
+        getLocation();
+        </script>
+    </body>
+    </html>
+    """
+    
+    # Save and open the HTML file with UTF-8 encoding
+    try:
+        html_file = os.path.join(os.path.dirname(__file__), "live_location.html")
+        with open(html_file, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        webbrowser.open(html_file)
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to create live location page: {str(e)}")
 
 if __name__ == "__main__":
     root = tk.Tk()
