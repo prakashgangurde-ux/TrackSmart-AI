@@ -86,8 +86,7 @@ MIT License – free for personal, educational, or commercial use with attributi
 
 ## 👨‍💻 Author
 **Name**: PRAKASH GANGURDE  
-**Institution**: BCA, 2025  
-**GitHub**: https://github.com/YOUR_USERNAME
+**GitHub**: https://github.com/prakashgangurde-ux
 
 ---
 
