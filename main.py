@@ -1,5 +1,4 @@
 # TrackSmart AI – Tkinter Desktop Version
-# Author: You + ChatGPT
 # Features: User Login, Location Reminder, AI Suggestions, SQLite Storage, Auto Location via IP, Stats & Graphs, Smart AI UI
 
 import tkinter as tk
