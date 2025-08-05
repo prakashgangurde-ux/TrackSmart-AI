@@ -23,7 +23,7 @@ from tkcalendar import DateEntry
 import os
 
 # Add OpenWeatherMap API key
-WEATHER_API_KEY = "https://api.openweathermap.org/data/3.0/onecall?lat={lat}&lon={lon}&exclude={part}&appid={API key}"  # Get from openweathermap.org
+WEATHER_API_KEY = ""  # Get from openweathermap.org
 
 # --- Database Setup ---
 conn = sqlite3.connect("tracksmart.db")
